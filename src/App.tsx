@@ -78,6 +78,13 @@ const SOCIAL_PROOFS = [
   { name: "André", city: "Salvador", action: "economizou R$ 1.200 na reserva" }
 ];
 
+// --- CONFIGURAÇÃO DO CARROSSEL DE IMAGENS (ETAPA 1) ---
+const SHIP_CAROUSEL_IMAGES = [
+  "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/navegando1.png",
+  "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/cabine1.png",
+  "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/restaurante1.png"
+];
+
 const App: React.FC = () => {
   const [step, setStep] = useState<'intro' | 'questions' | 'loading' | 'results'>('intro');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -625,13 +632,29 @@ const App: React.FC = () => {
                   )}
 
                   <div className="relative">
-                    {/* IMAGEM DO NAVIO (RESOLUÇÃO DIRETA + FALLBACK) */}
-                    <img
-                      src={resolveShipImage(rec.ship, rec.magneticName)}
-                      alt={rec.ship}
-                      className="h-64 w-full object-cover"
-                      onError={(e) => { e.currentTarget.src = SHIP_IMAGES["default"]; }}
-                    />
+                    {/* CARROSSEL DE IMAGENS NOS CARDS (ETAPA 3) */}
+<div className="relative h-64 w-full overflow-hidden">
+  <div className="flex h-full w-full overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar">
+    {SHIP_CAROUSEL_IMAGES.map((img, idx) => (
+      <div key={idx} className="h-full w-full flex-shrink-0 snap-center">
+        <img
+          src={img}
+          alt={`${rec.ship} ${idx + 1}`}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    ))}
+  </div>
+
+  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+    {SHIP_CAROUSEL_IMAGES.map((_, idx) => (
+      <span
+        key={idx}
+        className="w-2 h-2 rounded-full bg-white/70 shadow-sm"
+      />
+    ))}
+  </div>
+</div>
 
 
                     <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-2xl text-right">
