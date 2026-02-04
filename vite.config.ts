@@ -3,8 +3,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  // 🔴 OBRIGATÓRIO para GitHub Pages
-  base: '/cruzeiro-sob-medida/',
+  // Base URL do app em produção
+  // Para domínio próprio na raiz: '/'
+  base: '/',
 
   server: {
     port: 3000,
