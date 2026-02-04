@@ -1,4 +1,3 @@
-
 export enum TravelProfile {
   COUPLE = 'Casal',
   FAMILY = 'Família com crianças',
@@ -33,7 +32,8 @@ export enum RoutePreference {
 export enum CabinRequirement {
   ECONOMY = 'Preço (Interna)',
   VIEW = 'Vista Mar (Janela)',
-  BALCONY = 'Conforto (Varanda)'
+  BALCONY = 'Conforto (Varanda)',
+  UNDEFINED = 'Ainda não decidi / Quero ajuda' // Adicionado para o fluxo de explicação
 }
 
 export interface LeadData {
@@ -46,6 +46,7 @@ export interface LeadData {
   priority: ExperiencePriority;
   route: RoutePreference;
   cabin: CabinRequirement;
+  needsCabinEducation?: boolean; // Flag para indicar se o lead pediu explicação
 }
 
 export interface BonusItem {

@@ -13,19 +13,61 @@ import {
   Tag,
   Share2,
   Timer,
-  CheckCircle2
+  CheckCircle2,
+  HelpCircle,
+  X,
+  Check,
+  Building2,
+  Phone
 } from 'lucide-react';
 import { QUESTIONS } from './constants';
 import { LeadData, AIAnalysis } from './types';
 import { analyzeCruiseProfile } from './geminiService';
 
+// --- CONFIGURAÇÃO DE IMAGENS BLINDADAS (100% Unsplash) ---
+const SHIP_IMAGES: Record<string, string> = {
+
+  // MSC
+  "grandiosa": "https://images.unsplash.com/photo-1599640845513-2627a3a4af75?auto=format&fit=crop&w=800&q=80",
+  "seaview": "https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&w=800&q=80",
+  "splendida": "https://images.unsplash.com/photo-1632943792072-3c0ae076e0eb?auto=format&fit=crop&w=800&q=80",
+  "orchestra": "https://images.unsplash.com/photo-1517400508447-f8dd518b86db?auto=format&fit=crop&w=800&q=80",
+  "preziosa": "https://images.unsplash.com/photo-1605281317010-fe5ffe79b9b7?auto=format&fit=crop&w=800&q=80",
+
+  // COSTA
+  "diadema": "https://images.unsplash.com/photo-1628278235288-750174034267?auto=format&fit=crop&w=800&q=80",
+  "favolosa": "https://images.unsplash.com/photo-1559599238-308793637427?auto=format&fit=crop&w=800&q=80",
+  "pacifica": "https://images.unsplash.com/photo-1609688669309-fc15db557633?auto=format&fit=crop&w=800&q=80",
+
+  // Genéricos (Fallback)
+  "msc": "https://images.unsplash.com/photo-1599640845513-2627a3a4af75?auto=format&fit=crop&w=800&q=80",
+  "costa": "https://images.unsplash.com/photo-1628278235288-750174034267?auto=format&fit=crop&w=800&q=80",
+  "default": "https://images.unsplash.com/photo-1559599238-308793637427?auto=format&fit=crop&w=800&q=80"
+};
+
+const resolveShipImage = (ship?: string, magneticName?: string) => {
+  const shipNameLower = (ship || "").toLowerCase();
+  const magneticNameLower = (magneticName || "").toLowerCase();
+
+  const matchedKey = Object.keys(SHIP_IMAGES).find((key) =>
+    shipNameLower.includes(key) || magneticNameLower.includes(key)
+  );
+
+  if (matchedKey) return SHIP_IMAGES[matchedKey];
+  if (shipNameLower.includes("msc")) return SHIP_IMAGES["msc"];
+  if (shipNameLower.includes("costa")) return SHIP_IMAGES["costa"];
+  return SHIP_IMAGES["default"];
+};
+
 const LOADING_MESSAGES = [
-  "Sol está consultando as rotas da MSC e Costa...",
-  "Buscando as melhores cabines para o seu perfil...",
-  "Sol está negociando seus bônus exclusivos...",
-  "Calculando a melhor vivência baseada no seu desejo...",
-  "Quase pronto! Sol está finalizando seu plano de ouro..."
+  "Sol está conectando ao sistema da MSC e Costa...",
+  "Analisando disponibilidade de cabines...",
+  "Comparando preços e roteiros...",
+  "Sol está negociando bônus exclusivos...",
+  "Quase pronto! Finalizando seu plano de viagem..."
 ];
+
+const MIN_LOADING_TIME = 4500; // Tempo mínimo de loading (4.5 segundos)
 
 const SOCIAL_PROOFS = [
   { name: "Mariana", city: "Curitiba", action: "garantiu o bônus de cabine" },
@@ -54,10 +96,13 @@ const App: React.FC = () => {
   const [showPostChoice, setShowPostChoice] = useState(false);
   const [isDraftingMsg, setIsDraftingMsg] = useState(false);
 
-  // Features adicionais já existentes
+  // Features adicionais
   const [timeLeft, setTimeLeft] = useState(900); // 15 minutes
   const [socialProof, setSocialProof] = useState<{ name: string; city: string; action: string } | null>(null);
   const [showSocial, setShowSocial] = useState(false);
+
+  // Modal de Ajuda
+  const [showCabinHelp, setShowCabinHelp] = useState(false);
 
   const formatBRL = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -108,7 +153,7 @@ const App: React.FC = () => {
     if (step === 'loading') {
       interval = window.setInterval(() => {
         setLoadingMsgIndex(prev => (prev + 1) % LOADING_MESSAGES.length);
-      }, 3000);
+      }, 1200);
     }
     return () => clearInterval(interval);
   }, [step]);
@@ -144,7 +189,7 @@ const App: React.FC = () => {
     setIsDraftingMsg(false);
   };
 
-  const handleNext = (value?: any) => {
+  const handleNext = (value?: any, isEducationRequest = false) => {
     const currentQuestion = QUESTIONS[currentQuestionIndex];
     let finalValue = value;
 
@@ -170,7 +215,14 @@ const App: React.FC = () => {
       }
     }
 
-    const newFormData = { ...formData, [currentQuestion.id]: finalValue };
+    setShowCabinHelp(false);
+
+    const newFormData = {
+      ...formData,
+      [currentQuestion.id]: finalValue,
+      needsCabinEducation: formData.needsCabinEducation || isEducationRequest
+    };
+
     setFormData(newFormData);
     setError(null);
 
@@ -188,20 +240,28 @@ const App: React.FC = () => {
   const processAnalysis = async (data: LeadData) => {
     setStep('loading');
 
-    // pequeno delay para garantir UI de loading
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Marca o tempo inicial para garantir o delay mínimo ("Teatro" da IA)
+    const startTime = Date.now();
 
     try {
       console.log("🚀 Chamando Gemini Service com:", data);
+
       const result = await analyzeCruiseProfile(data);
       console.log("✅ Resultado Gemini recebido:", result);
 
       if (!result) throw new Error("Retorno vazio da API");
 
+      // Calcula quanto tempo passou e aguarda o restante se necessário
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, MIN_LOADING_TIME - elapsedTime);
+
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+
       setAnalysis(result);
       setStep('results');
 
-      // reset de estados de preferência ao entrar nos resultados
       setSelectedPreference(null);
       setShowPostChoice(false);
       setIsDraftingMsg(false);
@@ -216,7 +276,6 @@ const App: React.FC = () => {
   const handleWhatsApp = (recTitle?: string, shareWithPartner = false) => {
     if (!analysis || !formData) return;
 
-    // Exige escolha no fluxo principal (não no compartilhar)
     if (!shareWithPartner && !(recTitle || selectedPreference)) return;
 
     const bestRec = analysis.recommendations.find(r => r.isRecommended) || analysis.recommendations[0];
@@ -226,27 +285,38 @@ const App: React.FC = () => {
     if (shareWithPartner) {
       text =
         `Olha o que a Sol encontrou para nossa viagem! 🚢\n\n` +
-        `Opção: ${chosen}\n` +
-        `Navio: ${bestRec.ship}\n` +
-        `Valor aproximado: ${bestRec.estimatedPrice}\n\n` +
-        `Achei que combina muito com a gente. O que acha?`;
+        `*Opção:* ${chosen}\n` +
+        `*Navio:* ${bestRec.ship}\n` +
+        `*Valor:* ${bestRec.estimatedPrice}\n\n` +
+        `Achei que tem tudo a ver com a gente. Vamos fechar?`;
     } else {
       const budgetFormatted = formData.budget?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-      text =
-        `Olá Sol! 🚢 Acabei de finalizar minha consultoria digital e estou muito animado(a) para navegar!\n\n` +
-        `Aqui está o resumo do meu *Projeto de Viagem*:\n\n` +
-        `👤 *Viajante:* ${formData.name}\n` +
-        `👥 *Passageiros:* ${formData.peopleCount} pessoas (${formData.profile})\n` +
-        `📅 *Período:* ${formData.period}\n` +
-        `📍 *Destino:* ${formData.route}\n` +
-        `💎 *Foco:* ${formData.priority}\n` +
-        `🛌 *Cabine:* ${formData.cabin}\n` +
-        `💰 *Orçamento:* ${budgetFormatted}\n` +
-        `⚓ *Experiência:* ${formData.experience}\n\n` +
-        `⭐ *MINHA PREFERÊNCIA:*\n` +
-        `*${chosen}*\n\n` +
-        `Quero garantir meus *Bônus de Ação Rápida* e as condições especiais que você encontrou para mim! Como prosseguimos com a reserva?`;
+      const cabinNote = formData.needsCabinEducation
+        ? `\n⚠️ *Nota:* O cliente pediu ajuda para entender as cabines. Por favor, apresente opções de Interna vs Varanda se possível.`
+        : ``;
+
+            text =
+        `Olá equipe MCATUR 🙂\n` +
+        `Vim encaminhado pela consultora digital *Sol* e gostaria de avançar com minha reserva.\n\n` +
+        `★ *RESUMO DO PROJETO DE VIAGEM*\n` +
+        `-----------------------------------\n` +
+        `➤ *Titular:* ${formData.name}\n` +
+        `➤ *Grupo:* ${formData.peopleCount} pessoas (${formData.profile})\n` +
+        `➤ *Período:* ${formData.period}\n` +
+        `➤ *Roteiro:* ${formData.route}\n` +
+        `➤ *Prioridade:* ${formData.priority}\n` +
+        `➤ *Cabine:* ${formData.cabin}\n` +
+        `➤ *Budget:* ${budgetFormatted}\n` +
+        `➤ *Experiência:* ${formData.experience}\n\n` +
+        `★ *MINHA ESCOLHA FINAL*\n` +
+        `➤ *${chosen}*\n` +
+        `➤ *Navio:* ${bestRec.ship}\n` +
+        `➤ *Valor Previsto:* ${bestRec.estimatedPrice}\n` +
+        `${cabinNote}\n` +
+        `-----------------------------------\n` +
+        `Pode confirmar a disponibilidade e me enviar as condições de pagamento para fechar hoje? ✔`;
+
     }
 
     window.open(
@@ -257,7 +327,6 @@ const App: React.FC = () => {
 
   const currentQuestion = QUESTIONS[currentQuestionIndex];
 
-  // Safeguard
   if (!currentQuestion && step === 'questions') {
     return (
       <div>
@@ -274,15 +343,14 @@ const App: React.FC = () => {
           <span className="font-display font-bold text-sm tracking-tighter uppercase">Sol • Consultora Digital</span>
         </div>
         <div className="bg-yellow-400 text-blue-900 text-[10px] font-black px-3 py-1 rounded-full shadow-sm">
-          AGÊNCIA PREMIUM
+          AGÊNCIA AUTORIZADA
         </div>
       </header>
 
-      {/* Social Proof Notification */}
+      {/* Social Proof */}
       <div
-        className={`fixed bottom-24 left-4 right-4 z-[100] transition-all duration-500 transform ${
-          showSocial ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'
-        }`}
+        className={`fixed bottom-24 left-4 right-4 z-[100] transition-all duration-500 transform ${showSocial ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'
+          }`}
       >
         <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl border border-slate-100 flex items-center gap-3 max-w-xs mx-auto">
           <div className="bg-emerald-500 p-2 rounded-full text-white">
@@ -323,7 +391,7 @@ const App: React.FC = () => {
               Iniciar Consultoria <ChevronRight />
             </button>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Atendimento Digital Inteligente
+              Pesquisa Digital Inteligente
             </p>
           </div>
         )}
@@ -420,6 +488,17 @@ const App: React.FC = () => {
                       {opt} <ChevronRight className="w-5 h-5 text-slate-300" />
                     </button>
                   ))}
+
+                  {/* Botão de Ajuda na Cabine */}
+                  {currentQuestion.id === 'cabin' && (
+                    <button
+                      onClick={() => setShowCabinHelp(true)}
+                      className="w-full text-center py-4 text-blue-600 font-bold text-sm underline underline-offset-4 hover:text-blue-800 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                      Não sei... me explique as cabines
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -451,7 +530,7 @@ const App: React.FC = () => {
 
         {step === 'results' && analysis && (
           <div className="space-y-8 pb-40 animate-in slide-in-from-bottom-8">
-            {/* Real Scarcity Counter */}
+            {/* Scarcity */}
             <div className="bg-red-600 text-white py-3 px-6 rounded-2xl shadow-lg flex items-center justify-between animate-pulse">
               <div className="flex items-center gap-2">
                 <Timer className="w-5 h-5" />
@@ -493,13 +572,12 @@ const App: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase ${
-                            rec.type === 'ECONOMY'
+                          className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase ${rec.type === 'ECONOMY'
                               ? 'bg-slate-100 text-slate-500'
                               : rec.type === 'IDEAL'
-                              ? 'bg-yellow-400 text-blue-900'
-                              : 'bg-purple-100 text-purple-700'
-                          }`}
+                                ? 'bg-yellow-400 text-blue-900'
+                                : 'bg-purple-100 text-purple-700'
+                            }`}
                         >
                           {rec.type === 'IDEAL' ? 'Indicado' : rec.type}
                         </span>
@@ -531,14 +609,14 @@ const App: React.FC = () => {
               <p className="text-slate-600 text-sm leading-relaxed italic">"{analysis.tradeOffs}"</p>
             </div>
 
+            {/* RECOMMENDATIONS CARDS */}
             <div className="space-y-12">
               {analysis.recommendations.map((rec, i) => (
                 <div
                   id={`rec-${rec.type}`}
                   key={i}
-                  className={`rounded-[2.5rem] border-2 overflow-hidden shadow-2xl transition-all relative ${
-                    rec.isRecommended ? 'border-yellow-400 ring-8 ring-yellow-50 bg-white' : 'border-slate-200 bg-white'
-                  }`}
+                  className={`rounded-[2.5rem] border-2 overflow-hidden shadow-2xl transition-all relative ${rec.isRecommended ? 'border-yellow-400 ring-8 ring-yellow-50 bg-white' : 'border-slate-200 bg-white'
+                    }`}
                 >
                   {rec.isRecommended && (
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-yellow-400 text-blue-900 px-6 py-2 rounded-full font-black text-xs uppercase shadow-lg z-20 flex items-center gap-2">
@@ -547,7 +625,15 @@ const App: React.FC = () => {
                   )}
 
                   <div className="relative">
-                    <img src={rec.imageUrl} alt={rec.ship} className="h-64 w-full object-cover" />
+                    {/* IMAGEM DO NAVIO (RESOLUÇÃO DIRETA + FALLBACK) */}
+                    <img
+                      src={resolveShipImage(rec.ship, rec.magneticName)}
+                      alt={rec.ship}
+                      className="h-64 w-full object-cover"
+                      onError={(e) => { e.currentTarget.src = SHIP_IMAGES["default"]; }}
+                    />
+
+
                     <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-2xl text-right">
                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">Valor Total</p>
                       <p className="text-slate-400 line-through text-xs font-bold">{rec.totalValue}</p>
@@ -598,24 +684,6 @@ const App: React.FC = () => {
                       </div>
                       <p className="text-xs font-bold leading-relaxed">{rec.guarantee}</p>
                     </div>
-
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={() => {
-                          setSelectedPreference(rec.magneticName);
-                          handleWhatsApp(rec.magneticName);
-                        }}
-                        className="w-full py-4 bg-blue-700 hover:bg-blue-800 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
-                      >
-                        Escolher esta Opção <ChevronRight className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleWhatsApp(rec.magneticName, true)}
-                        className="w-full py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-all"
-                      >
-                        <Share2 className="w-4 h-4" /> Compartilhar com meu Par
-                      </button>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -641,59 +709,119 @@ const App: React.FC = () => {
                           setIsDraftingMsg(true);
                           setTimeout(() => setIsDraftingMsg(false), 1800);
                         }}
-                        className={`p-4 rounded-2xl border-2 font-bold text-sm transition-all text-left flex justify-between items-center ${
-                          selectedPreference === rec.magneticName
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                            : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-blue-200'
-                        }`}
+                        className={`p-4 rounded-2xl border-2 transition-all flex justify-between items-center group ${selectedPreference === rec.magneticName
+                            ? 'border-emerald-500 bg-emerald-50'
+                            : 'border-slate-100 bg-white hover:border-blue-200 hover:bg-slate-50'
+                          }`}
                       >
-                        {rec.magneticName}
-                        {selectedPreference === rec.magneticName && (
-                          <Star className="w-4 h-4 fill-emerald-500 text-emerald-500" />
-                        )}
+                        <div className="flex flex-col text-left">
+                          {rec.isRecommended && (
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">
+                              ★ Indicação da Sol
+                            </span>
+                          )}
+                          <span className={`font-bold text-sm ${selectedPreference === rec.magneticName ? 'text-emerald-900' : 'text-slate-700'}`}>
+                            {rec.magneticName}
+                          </span>
+                          <span className="text-xs text-slate-500 font-medium mt-0.5">{rec.ship}</span>
+                          <span className="text-sm font-black text-blue-900 mt-1">{rec.estimatedPrice}</span>
+                        </div>
+
+                        <div className="flex items-center">
+                          {selectedPreference === rec.magneticName ? (
+                            <div className="bg-emerald-500 rounded-full p-1">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-400" />
+                          )}
+                        </div>
                       </button>
                     ))}
                   </div>
 
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest pt-2">
-                    Escolha 1 opção para continuar
+                    Toque em 1 opção para eu destravar a melhor condição no WhatsApp
                   </p>
                 </>
               ) : (
-                <div className="space-y-4">
-                  <Sun className="w-12 h-12 text-yellow-500 mx-auto animate-pulse" />
-
-                  <h3 className="text-2xl font-black text-blue-900 leading-tight">
-                    Hummm… ótima escolha, {formData.name || 'meu viajante'}! 😄
-                  </h3>
-
-                  <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                    Você escolheu: <span className="font-black text-emerald-700">{selectedPreference}</span>
-                  </p>
-
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left">
-                    <p className="text-sm font-bold text-slate-700">
-                      {isDraftingMsg
-                        ? `Só alguns segundos, ${formData.name || 'meu viajante'}… estou montando um textinho curto pro meu gerente.`
-                        : `Pronto! Agora aperte o botão verde pra eu enviar pro meu gerente. Ele costuma destravar condições melhores rapidinho.`}
+                <div className="space-y-5">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center p-3 bg-emerald-100 rounded-full mb-3 ring-4 ring-emerald-50">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-800 leading-tight">
+                      Hummm… ótima escolha, {formData.name || 'Viajante'}! 😄
+                    </h3>
+                    <p className="text-sm text-slate-500 font-medium mt-2">
+                      Você escolheu: <span className="font-bold text-emerald-700">{selectedPreference}</span>
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-2">
-                      Ele vai te responder no WhatsApp com a melhor condição possível.
-                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 border-2 border-emerald-100 rounded-2xl p-5 text-left relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 rounded-bl-full -mr-4 -mt-4"></div>
+
+                    <div className="relative z-10 space-y-3">
+                      {isDraftingMsg ? (
+                        <p className="text-sm font-bold text-slate-700 animate-pulse">
+                          Aguarde... estou compilando seus bônus para a diretoria da MCATUR.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold text-slate-800 leading-relaxed">
+                            Perfeito. Agora você vai falar com a agência que executa essa rota com prioridade máxima hoje.
+                          </p>
+
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            A MCATUR já recebe seu perfil completo e validado por mim Sol. Nada de repetir informações. Nada de perder tempo.
+                          </p>
+
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            No WhatsApp, um consultor humano vai te responder com:
+                          </p>
+
+                          <ul className="text-xs text-slate-600 leading-relaxed list-disc list-inside space-y-1">
+                            <li>disponibilidade real de cabine (antes de esgotar)</li>
+                            <li>valor com desconto final atualizado</li>
+                            <li>condições especiais de fechamento</li>
+                            <li>próximos passos simples para confirmar sua reserva</li>
+                          </ul>
+                          {/* Bloco Institucional MCATUR */}
+                          <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
+                            <div className="flex items-center gap-2 text-slate-700">
+                              <Building2 className="w-3 h-3 text-emerald-600" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Agência MCATUR Turismo</span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                <span className="text-[10px]">Atuando desde 2014 • Sede física em São Paulo</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Phone className="w-3 h-3" />
+                                <span className="text-[10px]">Telefone fixo: (11) 3040-1860</span>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     disabled={isDraftingMsg}
                     onClick={() => handleWhatsApp(selectedPreference || undefined)}
-                    className={`w-full font-black py-6 rounded-[2rem] shadow-2xl flex flex-col items-center justify-center gap-1 text-xl active:scale-95 transition-all
-                      ${isDraftingMsg ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                    className={`w-full font-black py-5 rounded-[1.5rem] shadow-xl shadow-emerald-200 flex flex-col items-center justify-center gap-1 text-lg active:scale-95 transition-all relative overflow-hidden group
+                      ${isDraftingMsg ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="w-7 h-7" />
-                      <span>{isDraftingMsg ? 'Aguarde...' : 'Apertar o Botão Verde'}</span>
+                    {!isDraftingMsg && <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-[1.5rem]"></div>}
+
+                    <div className="flex items-center gap-2 relative z-10">
+                      <MessageCircle className="w-6 h-6" />
+                      <span>{isDraftingMsg ? 'Processando...' : 'Apertar o Botão Verde'}</span>
                     </div>
-                    <span className="text-[10px] opacity-80 uppercase tracking-[0.2em] font-bold">
-                      Enviar para o Gerente no WhatsApp
+                    <span className="text-[10px] opacity-90 uppercase tracking-[0.15em] font-bold relative z-10">
+                      Receber a melhor condição no WhatsApp
                     </span>
                   </button>
 
@@ -702,7 +830,7 @@ const App: React.FC = () => {
                       setShowPostChoice(false);
                       setIsDraftingMsg(false);
                     }}
-                    className="text-[11px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-800"
+                    className="text-[11px] font-bold text-slate-400 uppercase tracking-widest hover:text-blue-600 transition-colors"
                   >
                     Trocar minha escolha
                   </button>
@@ -721,11 +849,60 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* MODAL DE EXPLICAÇÃO (Obrigatório para funcionar) */}
+      {showCabinHelp && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setShowCabinHelp(false)} />
+
+          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-300">
+            <button onClick={() => setShowCabinHelp(false)} className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-red-500">
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-blue-600">
+                <HelpCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-blue-900">{QUESTIONS.find(q => q.id === 'cabin')?.helpContent?.title}</h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">Entenda para escolher melhor</p>
+            </div>
+
+            <div className="space-y-3 mb-6 max-h-[50vh] overflow-y-auto">
+              {QUESTIONS.find(q => q.id === 'cabin')?.helpContent?.cards.map((card, idx) => (
+                <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <h4 className="font-bold text-blue-900 text-sm mb-1">{card.title}</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed mb-2">{card.description}</p>
+                  <span className="bg-white px-2 py-1 rounded-md text-[10px] font-bold text-blue-600 border border-blue-100 uppercase tracking-wide">
+                    Ideal para: {card.bestFor}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => setShowCabinHelp(false)}
+                className="w-full bg-blue-700 text-white py-4 rounded-xl font-black shadow-lg text-sm flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4" /> Entendi, quero escolher agora
+              </button>
+
+              <button
+                onClick={() => handleNext('Ainda não decidi / Quero ajuda', true)}
+                className="w-full bg-white text-slate-500 py-3 rounded-xl font-bold border border-slate-200 text-xs hover:bg-slate-50"
+              >
+                Ainda estou na dúvida (Avançar assim mesmo)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="mt-auto pt-16 pb-12 text-center px-10">
         <Sun className="w-8 h-8 text-slate-200 mx-auto mb-4" />
         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-loose">
-          Framework Sol AI & $100M Offers.<br />
-          Engenharia de Valor para {formData.name || 'Você'}.
+          Especialista Em Encontrar Ofertas Para Cruzeiros<br />
+          Promoção valida para {formData.name || 'Você'}.
         </p>
         <button
           onClick={resetPlan}

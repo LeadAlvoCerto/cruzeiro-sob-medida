@@ -1,4 +1,3 @@
-
 import { PreferredPeriod, TravelProfile, ExperienceLevel, ExperiencePriority, RoutePreference, CabinRequirement } from './types';
 
 export const QUESTIONS = [
@@ -46,7 +45,33 @@ export const QUESTIONS = [
     id: 'cabin',
     question: 'Qual o seu nível de exigência com a cabine?',
     type: 'select',
-    options: Object.values(CabinRequirement)
+    // MUDANÇA 1: Definimos explicitamente para excluir o "Ainda não decidi" dos botões grandes
+    options: [
+      CabinRequirement.ECONOMY,
+      CabinRequirement.VIEW,
+      CabinRequirement.BALCONY
+    ],
+    // MUDANÇA 2: Conteúdo educativo para o Modal
+    helpContent: {
+      title: "Entenda as Diferenças",
+      cards: [
+        {
+          title: "Interna (Econômica)",
+          description: "Sem janelas. Ideal se você só vai ao quarto para dormir e trocar de roupa.",
+          bestFor: "Orçamento focado em passeios"
+        },
+        {
+          title: "Externa (Vista Mar)",
+          description: "Possui uma janela (bocata) que não abre, mas garante luz natural e vista.",
+          bestFor: "Quem quer ver o dia amanhecer"
+        },
+        {
+          title: "Varanda (Conforto)",
+          description: "Sua área privada ao ar livre. Sentir a brisa do mar na rede ou cadeira.",
+          bestFor: "Experiência completa e privacidade"
+        }
+      ]
+    }
   },
   {
     id: 'experience',
