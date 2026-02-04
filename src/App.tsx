@@ -78,12 +78,38 @@ const SOCIAL_PROOFS = [
   { name: "André", city: "Salvador", action: "economizou R$ 1.200 na reserva" }
 ];
 
-// --- CONFIGURAÇÃO DO CARROSSEL DE IMAGENS (ETAPA 1) ---
-const SHIP_CAROUSEL_IMAGES = [
-  "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/navegando1.png",
-  "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/cabine1.png",
-  "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/restaurante1.png"
-];
+const SHIP_CAROUSEL_BY_SHIP: Record<string, string[]> = {
+  grandiosa: [
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/grandiosanavegando.png",
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/grandiosapiscinas1.png",
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/grandiosacabine.png",
+  ],
+    splendida: [
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/splendida1.png",
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/splendida2.png",
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/esplendida3.png",
+  ],
+
+  default: [
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/navegando1.png",
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/cabine1.png",
+    "https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/public/images/ships/restaurante1.png",
+  ],
+};
+
+const resolveShipCarouselImages = (ship?: string, magneticName?: string) => {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, " ");
+
+  const shipLower = normalize(ship || "");
+  const magneticLower = normalize(magneticName || "");
+
+  const matchedKey = Object.keys(SHIP_CAROUSEL_BY_SHIP).find((key) => {
+    if (key === "default") return false;
+    return shipLower.includes(key) || magneticLower.includes(key);
+  });
+
+  return matchedKey ? SHIP_CAROUSEL_BY_SHIP[matchedKey] : SHIP_CAROUSEL_BY_SHIP.default;
+};
 
 const App: React.FC = () => {
   const [step, setStep] = useState<'intro' | 'questions' | 'loading' | 'results'>('intro');
@@ -635,7 +661,7 @@ const App: React.FC = () => {
                     {/* CARROSSEL DE IMAGENS NOS CARDS (ETAPA 3) */}
 <div className="relative h-64 w-full overflow-hidden">
   <div className="flex h-full w-full overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar">
-    {SHIP_CAROUSEL_IMAGES.map((img, idx) => (
+    {resolveShipCarouselImages(rec.ship, rec.magneticName).map((img, idx) => (
       <div key={idx} className="h-full w-full flex-shrink-0 snap-center">
         <img
           src={img}
@@ -647,11 +673,8 @@ const App: React.FC = () => {
   </div>
 
   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-    {SHIP_CAROUSEL_IMAGES.map((_, idx) => (
-      <span
-        key={idx}
-        className="w-2 h-2 rounded-full bg-white/70 shadow-sm"
-      />
+    {resolveShipCarouselImages(rec.ship, rec.magneticName).map((_, idx) => (
+      <span key={idx} className="w-2 h-2 rounded-full bg-white/70 shadow-sm" />
     ))}
   </div>
 </div>
