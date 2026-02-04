@@ -1,12 +1,21 @@
-
+/// <reference types="vite/client" />
 import { GoogleGenAI, Type } from "@google/genai";
 import { LeadData, AIAnalysis } from "./types";
 
 export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const budgetPerPerson = (data.budget / data.peopleCount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  // 1. INFRAESTRUTURA VITE (O Corpo Novo)
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
+  if (!apiKey) {
+    console.error("❌ ERRO CRÍTICO: Chave VITE_GEMINI_API_KEY não encontrada no .env.local");
+    throw new Error("Chave de API não configurada");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const budgetPerPerson = (data.budget / (data.peopleCount || 1)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  // 2. A ALMA DA SOL (O Prompt Validado Restaurado)
   const prompt = `
     Olá, eu sou a Sol, sua consultora especialista em cruzeiros!
     Analisei o seguinte perfil de lead para encontrar as opções perfeitas:
@@ -25,17 +34,20 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
     REQUISITOS OBRIGATÓRIOS:
     1. Gere EXATAMENTE 3 recomendações: uma "ECONOMY" (custo-benefício), uma "IDEAL" (a recomendada pela Sol, que melhor casa com a prioridade e roteiro) e uma "UPGRADE" (experiência premium).
     2. Identifique qual delas é a recomendada pela Sol (isRecommended: true).
-    3. Cada recomendação deve ter nomes M.A.G.I.C e um Value Stack de bônus robusto.
+    3. Cada recomendação deve ter nomes M.A.G.I.C (Magnéticos, Atrativos) e um Value Stack de bônus robusto (ex: "Guia de Malas", "Consultoria VIP").
     4. Crie uma mensagem de introdução ("solIntro") onde você explica por que essas opções foram escolhidas pessoalmente para o(a) ${data.name}.
     5. Crie uma pergunta final ("preferenceQuestion") perguntando qual dessas foi a favorita do(a) ${data.name} para que você possa tentar melhorar ainda mais as condições.
+    6. "tradeOffs": Explique o raciocínio da escolha (ex: "Priorizei X em vez de Y para caber no orçamento...").
   `;
 
   try {
+    // Usando modelo flash estável para garantir resposta rápida
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash', 
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: 'application/json',
+        // Schema rigoroso para garantir que o JSON venha perfeito para o App
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -81,6 +93,7 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
           },
           required: ['solIntro', 'tradeOffs', 'typicalDay', 'recommendations', 'conversionTrigger', 'fastActionBonus', 'preferenceQuestion']
         },
+        // Instrução de Sistema Original Restaurada
         systemInstruction: `Você é a Sol, consultora digital de cruzeiros da agência. Você aplica a metodologia de Alex Hormozi para criar ofertas de valor imbatível. Sua missão é fazer o(a) lead sentir que você encontrou o tesouro no oceano especificamente para ele(a). Sempre use o nome do lead na solIntro e na preferenceQuestion.`,
       }
     });
@@ -90,8 +103,11 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
     if (!jsonMatch) throw new Error("JSON Error");
     
     return JSON.parse(jsonMatch[0]) as AIAnalysis;
+
   } catch (error) {
-    console.error("AI Error:", error);
+    console.error("AI Error (Fallback Ativado):", error);
+    
+    // 3. FALLBACK RICO (Caso a API falhe, a Sol ainda entrega valor, não erro genérico)
     return {
       solIntro: `Oi, ${data.name}! Sou a Sol. Vasculhei as tabelas da MSC e Costa e encontrei três joias que se encaixam perfeitamente no que você busca para navegar!`,
       tradeOffs: "Foquei em garantir que você tenha a vivência que priorizou, otimizando cada centavo do seu orçamento.",
