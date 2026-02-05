@@ -353,7 +353,7 @@ const App: React.FC = () => {
     }
 
     window.open(
-      `https://wa.me/${shareWithPartner ? '' : '5511981366140'}?text=${encodeURIComponent(text)}`,
+      `https://wa.me/${shareWithPartner ? '' : '5519974010028'}?text=${encodeURIComponent(text)}`,
       '_blank'
     );
   };
