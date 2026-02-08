@@ -1,0 +1,14 @@
+﻿https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/.github/workflows/deploy.yml
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/.gitignore
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/App.tsx
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/README.md
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/constants.ts
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/geminiService.ts
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/index.html
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/index.tsx
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/metadata.json
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/package-lock.json
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/package.json
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/tsconfig.json
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/types.ts
+https://raw.githubusercontent.com/LeadAlvoCerto/cruzeiro-sob-medida/main/vite.config.ts
