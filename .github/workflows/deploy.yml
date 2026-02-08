@@ -33,7 +33,6 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_MARITACA_API_KEY: ${{ secrets.VITE_MARITACA_API_KEY }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
 
       - name: Upload artifact
