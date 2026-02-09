@@ -2,16 +2,34 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { LeadData, AIAnalysis } from "./types";
 
-// Schema definido como objeto simples (vamos forçar a aceitação dele lá embaixo)
+// Schema definido como objeto simples (forçaremos a aceitação com 'as any' para evitar erros de TS)
 const ANALYSIS_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    solIntro: { type: SchemaType.STRING, description: "Mensagem de boas-vindas empática e personalizada." },
-    tradeOffs: { type: SchemaType.STRING, description: "Explicação das escolhas baseadas no orçamento." },
-    typicalDay: { type: SchemaType.STRING, description: "Storytelling de um dia típico a bordo." },
-    conversionTrigger: { type: SchemaType.STRING, description: "Gatilho de escassez ou urgência." },
-    fastActionBonus: { type: SchemaType.STRING, description: "Bônus para fechamento rápido." },
-    preferenceQuestion: { type: SchemaType.STRING, description: "Pergunta final para engajar o lead." },
+    solIntro: { 
+      type: SchemaType.STRING, 
+      description: "Gancho inicial de alta conversão. Deve interromper o padrão, usar o nome do lead e sugerir que encontrou algo 'fora do radar' ou exclusivo." 
+    },
+    tradeOffs: { 
+      type: SchemaType.STRING, 
+      description: "Explicação estratégica de por que essas opções vencem qualquer busca no Google. Foco em custo-benefício inteligente." 
+    },
+    typicalDay: { 
+      type: SchemaType.STRING, 
+      description: "Micro-história sensorial de um momento 'Uau' a bordo. Use gatilhos visuais e emocionais." 
+    },
+    conversionTrigger: { 
+      type: SchemaType.STRING, 
+      description: "Gatilho de urgência real baseado em volatilidade de tarifas (ex: 'Tarifa flutuante, segura apenas por 20min')." 
+    },
+    fastActionBonus: { 
+      type: SchemaType.STRING, 
+      description: "Um bônus de alto valor percebido (digital ou serviço) apenas para quem fechar agora." 
+    },
+    preferenceQuestion: { 
+      type: SchemaType.STRING, 
+      description: "Pergunta de fechamento alternativa (Ex: 'Qual dessas experiências você quer travar antes que o preço suba?')." 
+    },
     recommendations: {
       type: SchemaType.ARRAY,
       items: {
@@ -19,24 +37,33 @@ const ANALYSIS_SCHEMA = {
         properties: {
           type: { type: SchemaType.STRING, enum: ["ECONOMY", "IDEAL", "UPGRADE"] },
           isRecommended: { type: SchemaType.BOOLEAN },
-          magneticName: { type: SchemaType.STRING, description: "Nome comercial atraente da oferta." },
+          magneticName: { 
+            type: SchemaType.STRING, 
+            description: "NOME MAGNÉTICO DA OFERTA. Use a fórmula: Adjetivo Forte + Benefício Principal + (Recurso Anti-Medo). Ex: 'Escapada VIP Sem Custos Ocultos'." 
+          },
           ship: { type: SchemaType.STRING },
           duration: { type: SchemaType.STRING },
           itinerary: { type: SchemaType.STRING },
           cabinType: { type: SchemaType.STRING },
           estimatedPrice: { type: SchemaType.STRING },
-          totalValue: { type: SchemaType.STRING, description: "Preço âncora (antes do desconto)." },
-          whyThis: { type: SchemaType.STRING },
+          totalValue: { type: SchemaType.STRING, description: "Preço âncora (valor percebido total antes do desconto exclusivo)." },
+          whyThis: { 
+            type: SchemaType.STRING, 
+            description: "Justificativa lógica irrefutável para esta escolha específica." 
+          },
           imageUrl: { type: SchemaType.STRING },
-          guarantee: { type: SchemaType.STRING },
+          guarantee: { 
+            type: SchemaType.STRING, 
+            description: "Garantia de risco revertido (ex: 'Garantia de Melhor Cabine Disponível na Categoria')." 
+          },
           bonusStack: {
             type: SchemaType.ARRAY,
             items: {
               type: SchemaType.OBJECT,
               properties: {
-                name: { type: SchemaType.STRING },
-                value: { type: SchemaType.STRING },
-                description: { type: SchemaType.STRING }
+                name: { type: SchemaType.STRING, description: "Nome sexy do bônus." },
+                value: { type: SchemaType.STRING, description: "Valor monetário percebido (R$)." },
+                description: { type: SchemaType.STRING, description: "Qual dor específica esse bônus resolve?" }
               },
               required: ["name", "value", "description"]
             }
@@ -69,34 +96,59 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
     
     const budgetPerPerson = (data.budget / (data.peopleCount || 1)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+    // ENGENHARIA DE PROMPT (DEV + MKT)
     const prompt = `
-      ATUE COMO: Sol, consultora de elite em cruzeiros da MCATUR.
-      
-      DADOS DO CLIENTE:
+      ATUE COMO: Sol, uma 'Caçadora de Ofertas de Cruzeiro' Sênior e Estrategista de Viagens.
+      Não aja como uma IA ou atendente. Aja como uma amiga especialista que acabou de encontrar um "erro no sistema" ou uma oportunidade rara.
+
+      CONTEXTO DO LEAD:
       - Nome: ${data.name}
-      - Budget Total: R$ ${data.budget} (~${budgetPerPerson}/pessoa)
+      - Orçamento Total: R$ ${data.budget} (~${budgetPerPerson}/pessoa)
       - Perfil: ${data.profile} (${data.peopleCount} pessoas)
-      - Experiência: ${data.experience}
-      - Prioridade: ${data.priority}
-      - Roteiro: ${data.route}
-      - Cabine: ${data.cabin}
+      - Experiência Anterior: ${data.experience}
+      - O que mais valoriza: ${data.priority}
+      - Roteiro Desejado: ${data.route}
+      - Cabine Preferida: ${data.cabin}
 
-      OBJETIVO:
-      Criar 3 ofertas irresistíveis (ECONOMY, IDEAL, UPGRADE) usando a metodologia de "Value Stacking" (Alex Hormozi).
-      Foque em navios da MSC e COSTA que operam no Brasil.
+      SUA MISSÃO (COPYWRITING DE ALTA CONVERSÃO):
+      Crie 3 Ofertas Irresistíveis (Economy, Ideal, Upgrade) usando a metodologia de "Grand Slam Offer".
+      
+      DIRETRIZES OBRIGATÓRIAS:
+      
+      1. O GANCHO (SOL INTRO):
+         - Comece com uma afirmação forte e contra-intuitiva. 
+         - Ex: "${data.name}, pare de procurar. O que encontrei aqui supera qualquer preço público."
+         - Use autoridade e escassez.
+      
+      2. NOMES MAGNÉTICOS (PARA AS OFERTAS):
+         - NUNCA use nomes genéricos como "Pacote Básico".
+         - Use a fórmula: [Benefício Emocional] + [Mecanismo Único] + [Quebra de Objeção].
+         - Ex: "Jornada Relax Total (Com Pacote de Bebidas Incluso)" ou "Aventura em Família Sem Stress".
 
-      DIRETRIZES DE COPYWRITING:
-      1. Seja entusiasta, expert e pessoal. Use o nome ${data.name}.
-      2. Crie nomes "Magnéticos" para os pacotes (ex: "Jornada do Relaxamento").
-      3. Invente bônus digitais/serviços críveis (ex: "Guia de Malas", "Roteiro de Bares").
-      4. A opção "IDEAL" deve ser a que melhor equilibra o budget e o desejo do cliente.
+      3. EMPILHAMENTO DE VALOR (BONUS STACK):
+         - Invente 2 ou 3 bônus digitais/serviços para cada oferta que resolvam "Dores Ocultas".
+         - Dor: Medo de gastar muito a bordo -> Bônus: "Guia de Economia Inteligente a Bordo (Poupe até R$500)".
+         - Dor: Medo de enjoar -> Bônus: "Seleção de Cabine Estratégica (Centro do Navio)".
+         - Dor: Não saber o que vestir -> Bônus: "Lookbook de Cruzeiro Tropical".
+         - Atribua um valor monetário alto para esses bônus (Valor Percebido).
+
+      4. ESCASSEZ E URGÊNCIA (CONVERSION TRIGGER):
+         - Use a volatilidade real das tarifas de cruzeiro.
+         - "O sistema atualiza a cada 20 minutos. Essa tarifa pode sumir se você fechar a aba."
+
+      5. OBJETIVO DO BOTÃO WHATSAPP:
+         - O cliente não quer "falar". Ele quer "TRAVAR" essa oportunidade antes que ela suma. A copy deve direcionar para isso.
+
+      DADOS TÉCNICOS:
+      - Foque EXCLUSIVAMENTE em navios da MSC e COSTA que operam na temporada brasileira ou América do Sul.
+      - Mantenha os preços realistas mas apresente-os como "oportunidades únicas".
     `;
 
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
-        // CORREÇÃO AQUI: O 'as any' força o TypeScript a aceitar nosso Schema sem reclamar
+        // O 'as any' garante que o TS aceite nosso Schema otimizado
         responseSchema: ANALYSIS_SCHEMA as any,
       }
     });
@@ -110,67 +162,76 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
     return JSON.parse(resultText) as AIAnalysis;
 
   } catch (error) {
-    console.warn("⚠️ Falha na IA (usando Fallback):", error);
+    console.warn("⚠️ Falha na IA (usando Fallback com Copy Otimizada):", error);
     return getFallbackAnalysis(data);
   }
 }
 
+/**
+ * Fallback com Copywriting Otimizado (Caso a API falhe)
+ */
 function getFallbackAnalysis(data: LeadData): AIAnalysis {
   return {
-    solIntro: `Olá, ${data.name}! O sistema da IA está sobrecarregado pelo alto volume de buscas, mas não se preocupe! Acessei nosso banco de dados offline e selecionei manualmente 3 opções incríveis para você.`,
-    tradeOffs: "Foquei em maximizar seu orçamento priorizando navios com melhor infraestrutura de lazer.",
-    typicalDay: "Imagine acordar com vista para o mar, curtir piscinas infinitas e terminar o dia com um jantar de gala.",
-    fastActionBonus: "🎁 BÔNUS DE CONTINGÊNCIA: 5% OFF extra se chamar no WhatsApp agora.",
-    conversionTrigger: "⚠️ Últimas cabines disponíveis nesta tarifa.",
-    preferenceQuestion: `Dessas opções manuais, ${data.name}, qual delas te fez sonhar mais alto?`,
+    solIntro: `${data.name}, escute com atenção: o sistema de tarifas flutuantes acabou de liberar 3 oportunidades que não aparecem nos buscadores comuns. Segurei essas opções temporariamente para você.`,
+    tradeOffs: "Filtrei centenas de cabines para encontrar estas 3 jóias raras que entregam luxo de resort pelo preço de hotel pousada.",
+    typicalDay: "Imagine você no deck superior, drink na mão, pôr do sol dourado no horizonte, sabendo que pagou menos que a pessoa na espreguiçadeira ao lado.",
+    fastActionBonus: "🎁 BÔNUS SECRETO: 'Guia Anti-Fila' + Upgrade de Prioridade no Embarque (Apenas hoje).",
+    conversionTrigger: "⚠️ Alerta de Tarifa: O sistema indica alta demanda para estas datas. Preços podem subir nas próximas 2 horas.",
+    preferenceQuestion: `Seja sincero, ${data.name}: qual dessas experiências exclusivas eu devo bloquear no sistema para você agora?`,
     recommendations: [
       {
         type: "ECONOMY",
         isRecommended: false,
-        magneticName: "Escapada Smart no Costa Favolosa",
+        magneticName: "O 'Hacker' de Tarifas Inteligente",
         ship: "Costa Favolosa",
         duration: "4 Noites",
-        itinerary: "Santos, Balneário Camboriú, Santos",
-        cabinType: "Interna Premium",
-        estimatedPrice: "R$ 3.200",
-        totalValue: "R$ 4.500",
-        whyThis: "A opção mais inteligente para caber no bolso sem perder a diversão.",
+        itinerary: "Santos, Balneário, Ilhabela, Santos",
+        cabinType: "Interna Premium (Localização Silenciosa)",
+        estimatedPrice: "R$ 3.290",
+        totalValue: "R$ 4.800",
+        whyThis: "Para quem quer viver a experiência completa do navio gastando o mínimo possível na dormida.",
         imageUrl: "https://images.unsplash.com/photo-1599640845513-2627a3a4af75?auto=format&fit=crop&w=800&q=80",
-        guarantee: "Menor preço garantido da temporada.",
-        bonusStack: [{ name: "E-book: Malas Inteligentes", value: "R$ 97", description: "O que levar sem excesso de peso." }]
+        guarantee: "Menor tarifa garantida para esta categoria hoje.",
+        bonusStack: [
+          { name: "Manual: Como Beber de Graça (Dicas Legais)", value: "R$ 97", description: "Segredos dos viajantes experientes." },
+          { name: "Checklist de Mala Compacta", value: "R$ 47", description: "Não pague excesso de bagagem nunca mais." }
+        ]
       },
       {
         type: "IDEAL",
         isRecommended: true,
-        magneticName: `A Experiência Sol para ${data.name} no MSC Seaview`,
+        magneticName: "A Experiência 'Celebridade' (Sem Preço de Celebridade)",
         ship: "MSC Seaview",
         duration: "7 Noites",
-        itinerary: "Santos, Salvador, Ilhéus, Santos",
-        cabinType: "Varanda Fantastica",
-        estimatedPrice: "R$ 6.800",
-        totalValue: "R$ 8.900",
-        whyThis: "O equilíbrio perfeito entre o luxo do navio e o roteiro dos sonhos.",
+        itinerary: "Nordeste Mágico (Salvador & Ilhéus)",
+        cabinType: "Varanda Fantastica (Vista Mar Infinita)",
+        estimatedPrice: "R$ 6.850",
+        totalValue: "R$ 9.200",
+        whyThis: "O ponto exato onde o luxo encontra o preço justo. Acordar com o mar na sua varanda não tem preço.",
         imageUrl: "https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&w=800&q=80",
-        guarantee: "Satisfação total ou upgrade na próxima viagem.",
+        guarantee: "Satisfação Blindada: Se não amar a cabine, lutamos por upgrade a bordo.",
         bonusStack: [
-          { name: "Consultoria VIP de Passeios", value: "R$ 250", description: "Os melhores pontos turísticos sem filas." },
-          { name: "Voucher de Drinks", value: "R$ 150", description: "Crédito para seus primeiros brindes." }
+          { name: "Roteiro Secreto de Salvador", value: "R$ 197", description: "Fuja das armadilhas de turista." },
+          { name: "Acesso VIP: Agente Dedicado MCATUR", value: "R$ 997", description: "Suporte humano real no WhatsApp 24h." }
         ]
       },
       {
         type: "UPGRADE",
         isRecommended: false,
-        magneticName: "Luxo Supremo Yacht Club",
+        magneticName: "O Protocolo Yacht Club (Elite)",
         ship: "MSC Grandiosa",
         duration: "7 Noites",
-        itinerary: "Roteiro Nordeste Premium",
-        cabinType: "Suíte Yacht Club",
-        estimatedPrice: "R$ 12.500",
-        totalValue: "R$ 15.000",
-        whyThis: "Para quem não aceita nada menos que a perfeição e exclusividade.",
+        itinerary: "Roteiro Premium Sudeste",
+        cabinType: "Suíte Yacht Club (All Inclusive)",
+        estimatedPrice: "R$ 12.900",
+        totalValue: "R$ 18.000",
+        whyThis: "Acesso a áreas restritas que 95% do navio nem sabe que existem. Mordomo, bebidas premium e privacidade total.",
         imageUrl: "https://images.unsplash.com/photo-1632943792072-3c0ae076e0eb?auto=format&fit=crop&w=800&q=80",
-        guarantee: "Atendimento de Mordomo 24h.",
-        bonusStack: [{ name: "Acesso Termal SPA", value: "R$ 800", description: "Relaxamento total incluso." }]
+        guarantee: "Status VIP Vitalício na nossa agência.",
+        bonusStack: [
+          { name: "Concierge Pessoal de Reservas", value: "Inestimável", description: "Nós reservamos seus restaurantes e shows." },
+          { name: "Spa Pass Day", value: "R$ 450", description: "Acesso termal para relaxamento profundo." }
+        ]
       }
     ]
   };
