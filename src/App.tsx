@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import { QUESTIONS } from './constants';
 import { LeadData, AIAnalysis } from './types';
-import { analyzeCruiseProfile } from './maritacaService';
+// CORREÇÃO AQUI: Apontando para o serviço correto do Gemini
+import { analyzeCruiseProfile } from './geminiService';
 
 // --- CONFIGURAÇÃO DE IMAGENS BLINDADAS (100% Unsplash) ---
 const SHIP_IMAGES: Record<string, string> = {
@@ -354,7 +355,7 @@ console.log("✅ recommendations:", (result as any)?.recommendations);
         ? `\n⚠️ *Nota:* O cliente pediu ajuda para entender as cabines. Por favor, apresente opções de Interna vs Varanda se possível.`
         : ``;
 
-            text =
+          text =
         `Olá equipe MCATUR 🙂\n` +
         `Vim encaminhado pela consultora digital *Sol* e gostaria de avançar com minha reserva.\n\n` +
         `★ *RESUMO DO PROJETO DE VIAGEM*\n` +

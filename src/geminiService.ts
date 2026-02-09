@@ -1,8 +1,8 @@
 // src/geminiService.ts
-import { GoogleGenAI, SchemaType } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { LeadData, AIAnalysis } from "./types";
 
-// Schema rigoroso para garantir a tipagem da resposta da IA
+// Schema definido como objeto simples (vamos forçar a aceitação dele lá embaixo)
 const ANALYSIS_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
@@ -59,16 +59,14 @@ const ANALYSIS_SCHEMA = {
 export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-  // Validação preventiva da API Key
   if (!apiKey) {
     console.error("❌ ERRO: VITE_GEMINI_API_KEY não configurada.");
-    return getFallbackAnalysis(data); // Retorna fallback imediato
+    return getFallbackAnalysis(data);
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Cálculo simples para contexto da IA
     const budgetPerPerson = (data.budget / (data.peopleCount || 1)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
     const prompt = `
@@ -94,17 +92,19 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
       4. A opção "IDEAL" deve ser a que melhor equilibra o budget e o desejo do cliente.
     `;
 
-    // Chamada à API usando o modelo Flash (mais rápido e barato)
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: ANALYSIS_SCHEMA,
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        // CORREÇÃO AQUI: O 'as any' força o TypeScript a aceitar nosso Schema sem reclamar
+        responseSchema: ANALYSIS_SCHEMA as any,
       }
     });
 
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
     const resultText = response.text();
+
     if (!resultText) throw new Error("Resposta vazia da IA");
 
     return JSON.parse(resultText) as AIAnalysis;
@@ -115,10 +115,6 @@ export async function analyzeCruiseProfile(data: LeadData): Promise<AIAnalysis> 
   }
 }
 
-/**
- * Retorna uma análise "Mock" de alta qualidade caso a API falhe.
- * Garante que o usuário nunca fique sem resposta.
- */
 function getFallbackAnalysis(data: LeadData): AIAnalysis {
   return {
     solIntro: `Olá, ${data.name}! O sistema da IA está sobrecarregado pelo alto volume de buscas, mas não se preocupe! Acessei nosso banco de dados offline e selecionei manualmente 3 opções incríveis para você.`,
