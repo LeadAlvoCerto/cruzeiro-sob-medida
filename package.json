@@ -1,16 +1,11 @@
 {
   "name": "cruzeiro-sob-medida",
   "private": true,
-<<<<<<< HEAD
   "version": "1.1.0",
-=======
-  "version": "0.0.0",
->>>>>>> 0bf57fa773c895b80f631bfa167a5ce6dca69231
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-<<<<<<< HEAD
     "preview": "vite preview",
     "type-check": "tsc"
   },
@@ -21,6 +16,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@types/node": "^22.14.0",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.2.1",
@@ -28,20 +24,6 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.8.2",
-=======
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react-dom": "^19.2.4",
-    "lucide-react": "^0.563.0",
-    "@google/genai": "^1.39.0",
-    "react": "^19.2.4"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
->>>>>>> 0bf57fa773c895b80f631bfa167a5ce6dca69231
     "vite": "^6.2.0"
   }
 }
